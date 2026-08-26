@@ -12,5 +12,21 @@
       <input type="text" name="keyword" placeholder="例:API" />
       <button type="submit">記事を作成する</button>
     </form>
+
+    {% if keyword %}
+    <h2>{{ title }}</h2>
+    <p>{{ article }}</p>
+    {% endif %} {% if quiz_question %}
+    <h3>{{ quiz_question }}</h3>
+    <form action="/" method="POST">
+      {% for option in quiz_choices %}
+      <p>
+        <button type="submit" name="user_choice" value="{{ option }}">
+          {{ option }}
+        </button>
+      </p>
+      {% endfor %}
+    </form>
+    {% endif %}
   </body>
 </html>
