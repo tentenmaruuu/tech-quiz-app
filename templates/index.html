@@ -2,15 +2,42 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tech Quiz App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
   </head>
   <body>
-    <h1>Tech Quiz App へようこそ！</h1>
-    <p>調べたい技術用語を入力してください。</p>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Tech Quiz App</p>
+        <h1>技術用語を、読んで解いて覚える。</h1>
+        <p class="lead">
+          気になるIT用語を入力すると、Geminiが初心者向けの解説記事と4択クイズを作ります。
+        </p>
 
-    <form action="/" method="POST">
-      <input type="text" name="keyword" placeholder="例:API" />
-      <button type="submit">記事を作成する</button>
-    </form>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert" role="alert">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+
+        <form class="search-form" action="{{ url_for('article') }}" method="post">
+          <label for="keyword">調べたい技術用語</label>
+          <div class="input-row">
+            <input
+              id="keyword"
+              name="keyword"
+              type="text"
+              placeholder="例: API、Docker、SQL、機械学習"
+              autocomplete="off"
+              maxlength="60"
+              required
+            />
+            <button type="submit">記事を作成</button>
+          </div>
+        </form>
+      </section>
+    </main>
   </body>
 </html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>結果 | Tech Quiz App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="topbar">
+        <a href="{{ url_for('index') }}">Tech Quiz App</a>
+      </nav>
+
+      <section class="score-panel">
+        <p class="eyebrow">{{ keyword }}</p>
+        <h1>{{ score }} / {{ total }} 問正解</h1>
+        <p class="lead">
+          {% if score == total %}
+            すばらしい理解度です。記事の内容をしっかり押さえられています。
+          {% elif score > 0 %}
+            惜しいです。解説を読み直すと、さらに定着します。
+          {% else %}
+            ここから覚えていけば大丈夫です。解説と正解理由を確認しましょう。
+          {% endif %}
+        </p>
+      </section>
+
+      <section class="review-list">
+        {% for item in results %}
+          <article class="review-item {{ 'correct' if item.is_correct else 'incorrect' }}">
+            <p class="result-mark">{{ '正解' if item.is_correct else '不正解' }}</p>
+            <h2>{{ loop.index }}. {{ item.question }}</h2>
+            <p>あなたの回答:
+              {% if item.selected_index is not none %}
+                {{ item.choices[item.selected_index] }}
+              {% else %}
+                未回答
+              {% endif %}
+            </p>
+            <p>正解: {{ item.choices[item.correct_index] }}</p>
+            {% if item.explanation %}
+              <p class="explanation">{{ item.explanation }}</p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
+
+      <div class="actions">
+        <a class="secondary-link" href="{{ url_for('index') }}">ホームへ戻る</a>
+      </div>
+    </main>
+  </body>
+</html>
