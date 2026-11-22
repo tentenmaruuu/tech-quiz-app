@@ -25,6 +25,22 @@
             <p>{{ paragraph }}</p>
           {% endif %}
         {% endfor %}
+        {% if content.code_example %}
+          <pre class="code-example"><code>{{ content.code_example }}</code></pre>
+        {% endif %}
+        {% if content.related_keywords %}
+          <div class="related-keywords">
+            <p class="related-label">関連用語を調べる</p>
+            <div class="chip-list">
+              {% for rel in content.related_keywords %}
+                <form class="related-form" action="{{ url_for('article') }}" method="post">
+                  <input type="hidden" name="keyword" value="{{ rel }}" />
+                  <button type="submit" class="chip-btn">{{ rel }}</button>
+                </form>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
       </article>
 
       <section class="quiz-panel">
@@ -32,10 +48,14 @@
           <p class="eyebrow">Quiz</p>
           <h2>理解度チェック</h2>
         </div>
-        <form action="{{ url_for('result') }}" method="post">
+        <div class="quiz-list">
           {% for question in content.questions %}
             {% set question_index = loop.index0 %}
-            <fieldset class="question">
+            <fieldset
+              class="question"
+              data-answer-index="{{ question.answer_index }}"
+              data-explanation="{{ question.explanation or '' }}"
+            >
               <legend>{{ loop.index }}. {{ question.question }}</legend>
               <div class="choices">
                 {% for choice in question.choices %}
@@ -44,19 +64,26 @@
                       type="radio"
                       name="q{{ question_index }}"
                       value="{{ loop.index0 }}"
-                      required
                     />
                     <span>{{ choice }}</span>
                   </label>
                 {% endfor %}
               </div>
+              <div class="question-feedback" hidden>
+                <p class="feedback-mark"></p>
+                <p class="feedback-explanation"></p>
+              </div>
             </fieldset>
           {% endfor %}
+          <div class="score-summary" hidden>
+            <p class="score-summary-title"></p>
+            <p class="score-summary-lead"></p>
+          </div>
           <div class="actions">
             <a class="secondary-link" href="{{ url_for('index') }}">別の用語を調べる</a>
-            <button type="submit">答え合わせ</button>
+            <button type="button" id="retry-quiz-btn" class="secondary-btn">このクイズを解き直す</button>
           </div>
-        </form>
+        </div>
       </section>
     </main>
   </body>
