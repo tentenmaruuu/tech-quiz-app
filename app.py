@@ -3,13 +3,14 @@ import os
 import random
 import re
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
 from dotenv import load_dotenv
 from flask import Flask, flash, redirect, render_template, request, session, url_for
-import google.generativeai as genai
+import google.genai as genai
 
 load_dotenv()
 
@@ -59,7 +60,24 @@ def build_fallback_content(keyword):
         build_question(question_text, correct_choice, explanation, distractors)
         for question_text, correct_choice, explanation in quiz_specs
     ]
-    return {"title": title, "article": article, "questions": questions}
+    code_example = (
+        f"[{keyword} の学習フロー]\n"
+        "1. 目的（なぜ必要か）を確認する\n"
+        "   ↓\n"
+        "2. 具体例・コードの動きを追う\n"
+        "   ↓\n"
+        "3. 解決したい課題と結びつける"
+    )
+    related_keywords = [
+        kw for kw in ["API", "データベース", "セキュリティ", "Docker"] if kw != keyword
+    ][:3]
+    return {
+        "title": title,
+        "article": article,
+        "code_example": code_example,
+        "related_keywords": related_keywords,
+        "questions": questions,
+    }
 
 
 def build_question(question_text, correct_choice, explanation, distractors):
@@ -102,6 +120,8 @@ def generate_with_gemini(keyword):
 {{
   "title": "記事タイトル",
   "article": "500文字程度の解説本文。段落は\\nで区切る。",
+  "code_example": "用語の理解を助ける短いソースコード、コマンド、または矢印を使ったテキスト図解（5〜10行程度）。不要な場合は空文字。",
+  "related_keywords": ["関連用語1", "関連用語2", "関連用語3"],
   "questions": [
     {{
       "question": "4択クイズの問題文",
@@ -115,6 +135,8 @@ def generate_with_gemini(keyword):
 クイズは3問作成してください。answer_indexは0から3の整数にしてください。
 各問題は、技術用語「{keyword}」の内容に直接関係する正解1つと不正解3つにしてください。
 不正解の選択肢も自然な日本語にしつつ、正解と同じ意味にならないようにしてください。
+related_keywordsは「{keyword}」に関連する別の技術用語を3つ挙げてください。
+重要（安全対策）: セキュリティや攻撃手法に関する用語が入力された場合、悪用可能な攻撃コードは絶対に出力せず、code_exampleには「なぜ危険なのかの仕組み図」と「防御する側のコード例（対策方法）」のみを生成してください。
 """
     model_path = urllib.parse.quote(normalize_model_name(GEMINI_MODEL), safe="")
     url = (
@@ -133,23 +155,36 @@ def generate_with_gemini(keyword):
         method="POST",
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=40) as response:
-            body = json.loads(response.read().decode("utf-8"))
-        text = body["candidates"][0]["content"]["parts"][0]["text"]
-        content = normalize_content(extract_json(text))
-        validate_content(content)
-        return content
-    except (
-        KeyError,
-        ValueError,
-        json.JSONDecodeError,
-        urllib.error.HTTPError,
-        urllib.error.URLError,
-    ) as exc:
-        fallback = build_fallback_content(keyword)
-        fallback["notice"] = f"AI生成に失敗したため、代替問題を表示しています: {format_gemini_error(exc)}"
-        return fallback
+    max_attempts = 3
+    retryable_statuses = {429, 500, 502, 503, 504}
+    last_exc = None
+
+    for attempt in range(max_attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=40) as response:
+                body = json.loads(response.read().decode("utf-8"))
+            text = body["candidates"][0]["content"]["parts"][0]["text"]
+            content = normalize_content(extract_json(text))
+            validate_content(content)
+            return content
+        except urllib.error.HTTPError as exc:
+            last_exc = exc
+            if exc.code in retryable_statuses and attempt < max_attempts - 1:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            break
+        except (
+            KeyError,
+            ValueError,
+            json.JSONDecodeError,
+            urllib.error.URLError,
+        ) as exc:
+            last_exc = exc
+            break
+
+    fallback = build_fallback_content(keyword)
+    fallback["notice"] = f"AI生成に失敗したため、代替問題を表示しています: {format_gemini_error(last_exc)}"
+    return fallback
 
 
 def format_gemini_error(exc):
@@ -205,9 +240,18 @@ def normalize_content(content):
             }
         )
 
+    raw_related = content.get("related_keywords")
+    related_keywords = (
+        [str(kw).strip() for kw in raw_related if str(kw).strip()][:3]
+        if isinstance(raw_related, list)
+        else []
+    )
+
     return {
         "title": str(content.get("title", "")).strip(),
         "article": str(content.get("article", "")).strip(),
+        "code_example": str(content.get("code_example") or "").strip(),
+        "related_keywords": related_keywords,
         "questions": normalized_questions,
     }
 
